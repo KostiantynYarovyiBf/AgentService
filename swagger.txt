@@ -1,0 +1,134 @@
+openapi: 3.0.0
+info:
+  title: MeshVPN Control Plane API
+  version: "0.1.0"
+  description: Basic API for agent registration and peer management
+
+servers:
+  - url: https://control-plane.example.com/api/v1
+
+paths:
+  /register:
+    post:
+      summary: Register a new agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Successful registration with peer list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerListResponse'
+
+  /peers:
+    get:
+      summary: Get current peer list
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of current peers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerListResponse'
+
+  /heartbeat:
+    post:
+      summary: Send agent status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '200':
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - device_id
+        - hostname
+        - version
+        - public_key
+      properties:
+        device_id:
+          type: string
+          example: agent-abc-123
+        hostname:
+          type: string
+          example: edge-node-1
+        version:
+          type: string
+          example: "0.1.0"
+        public_key:
+          type: string
+          example: BASE64_PUBKEY
+
+    HeartbeatRequest:
+      type: object
+      required:
+        - device_id
+        - uptime_sec
+        - version
+        - peers_connected
+      properties:
+        device_id:
+          type: string
+        uptime_sec:
+          type: integer
+        version:
+          type: string
+        peers_connected:
+          type: integer
+
+    Peer:
+      type: object
+      required:
+        - device_id
+        - public_key
+        - endpoint
+        - allowed_ips
+      properties:
+        device_id:
+          type: string
+        public_key:
+          type: string
+        endpoint:
+          type: string
+          example: 10.0.0.5:51820
+        allowed_ips:
+          type: array
+          items:
+            type: string
+          example: ["10.0.0.5/32"]
+
+    PeerListResponse:
+      type: object
+      properties:
+        peer_list:
+          type: array
+          items:
+            $ref: '#/components/schemas/Peer'
