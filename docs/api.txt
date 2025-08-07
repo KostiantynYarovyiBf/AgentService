@@ -1,0 +1,151 @@
+openapi: "3.0.0"
+info:
+  version: "1.0.0"
+  title: "WireGuard Control API"
+  description: |
+    API for building a WireGuard mesh network.
+    - Agents register using /register (POST).
+    - To fetch peers and TTL (and to signal liveness), agents use /ping (GET).
+    - The hash of peers/self minimizes network traffic — if nothing has changed, the server responds with HTTP 304.
+    - TTL indicates how long an agent is considered "alive" (the agent must ping at least once per TTL seconds).
+    - If the agent fails to update its peers for more than TTL seconds, it MUST disable its tunnel ("fail-close").
+    - If peers/self change (new hash), the agent MUST update its WireGuard configuration.
+
+    **Agent Lifecycle**
+      1. POST /register with its public key, endpoint, and hostname.
+      2. GET /ping with the current hash (header X-Peers-Hash).
+      3. If 304 — do nothing; if 200 — update the WireGuard configuration.
+      4. If there's no response from the control plane for more than TTL seconds, the agent MUST disable its VPN tunnel.
+
+servers:
+  - url: "/api/v1"
+    description: "API v1"
+
+paths:
+  /register:
+    post:
+      summary: "Register a new peer"
+      description: "Register or update a WireGuard peer in the system"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        '200':
+          description: "Successful registration"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        '500':
+          description: "Internal server error"
+
+  /ping:
+    get:
+      summary: "Get peers information"
+      description: "Retrieve information about active peers"
+      parameters:
+        - in: header
+          name: X-Peers-Hash
+          schema:
+            type: string
+          required: false
+          description: "Current peers configuration hash for cache validation"
+      responses:
+        '200':
+          description: "Successful operation - peers configuration has changed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PeerResponse"
+        '304':
+          description: "Not Modified - peers configuration hasn't changed"
+        '500':
+          description: "Internal server error"
+
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - publicKey
+        - endpoint
+        - hostname
+      properties:
+        publicKey:
+          type: string
+          description: "WireGuard public key (base64-encoded, 32 bytes)"
+          example: "L2yxK52G9EH4kXDJOgPgXMI9CWyqFhqyqYPgIUL8KXM="
+        endpoint:
+          type: string
+          description: "Peer endpoint address in format IP:PORT"
+          example: "1.2.3.4:51820"
+          pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}$"
+        hostname:
+          type: string
+          description: "Peer hostname"
+          example: "node-1"
+
+    Agent:
+      type: object
+      properties:
+        publicKey:
+          type: string
+          description: "WireGuard public key (base64-encoded, 32 bytes)"
+          example: "L2yxK52G9EH4kXDJOgPgXMI9CWyqFhqyqYPgIUL8KXM="
+        endpoint:
+          type: string
+          description: "Peer endpoint address in format IP:PORT"
+          example: "1.2.3.4:51820"
+          pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}$"
+        vpnIP:
+          type: string
+          description: "VPN IP address"
+          example: "10.0.0.2"
+          pattern: "^10\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$"
+        registeredAt:
+          type: string
+          format: date-time
+          example: "2025-07-29T12:00:00Z"
+        lastSeen:
+          type: string
+          format: date-time
+          example: "2025-07-29T12:00:00Z"
+        hostname:
+          type: string
+          example: "node-1"
+
+    RegisterResponse:
+      type: object
+      properties:
+        self:
+          $ref: "#/components/schemas/Agent"
+        peers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agent"
+        ttl:
+          type: integer
+          description: "Time to live in seconds"
+          default: 60
+          example: 60
+
+    PeerResponse:
+      type: object
+      properties:
+        self:
+          $ref: "#/components/schemas/Agent"
+        peers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agent"
+        hash:
+          type: string
+          description: "Hash of the peers configuration"
+          example: "sha256:a1b2c3d4..."
+        ttl:
+          type: integer
+          description: "Time to live in seconds"
+          example: 60
