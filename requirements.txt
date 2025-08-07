@@ -1,0 +1,7 @@
+#
+# cpr lib
+#
+libcurl4-openssl-dev
+libssl-dev
+ wireguard-tools
+ libmnl-dev
