@@ -26,5 +26,5 @@ cmake --build build
 
 **Release build:**
 ```sh
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=Linux
 cmake --build
