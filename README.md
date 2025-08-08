@@ -20,7 +20,7 @@ To build the project with CMake:
 
 **Debug build:**
 ```sh
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_SYSTEM_NAME=Linux
 cmake --build build
 ```
 
