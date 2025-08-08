@@ -1,26 +1,28 @@
 
 #pragma once
-#include "cli.hpp"
-#include "config.hpp"
-#include "registration_service.hpp"
+#include "cli/cli.hpp"
+#include "config/config.hpp"
+#include "registration/registration.hpp"
 
 #include <thread>
 #include <atomic>
 #include <memory>
 
-class service
+class agent_service
 {
 public:
-    service();
-    ~service();
+    agent_service();
+    ~agent_service();
 
     auto start() -> void;
     auto stop() -> void;
 
+    auto register_cli(std::unique_ptr<cli> &&cli) -> void;
+
 private:
     std::unique_ptr<cli> cli_;
     std::unique_ptr<config> config_;
-    std::unique_ptr<registration_service> reg_service_;
+    std::unique_ptr<registration> reg_service_;
 
     std::thread reg_thread_;
     std::atomic<bool> running_;
