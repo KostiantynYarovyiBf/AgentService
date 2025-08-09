@@ -144,7 +144,7 @@ components:
         hash:
           type: string
           description: "Hash of the peers configuration"
-          example: "sha256:a1b2c3d4..."
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         ttl:
           type: integer
           description: "Time to live in seconds"
