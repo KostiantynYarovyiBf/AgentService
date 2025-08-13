@@ -28,3 +28,6 @@ cmake --build build
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=Linux
 cmake --build
+
+##  Notes
+sudo gdbserver  localhost:2345 ./build/AgentService

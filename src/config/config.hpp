@@ -1,7 +1,10 @@
 #pragma once
-#include <string>
+
+#include "common/error_codes.hpp"
 
 #include <nlohmann/json.hpp>
+
+#include <string>
 
 struct vpn_agent_cfg_v1
 {
@@ -21,10 +24,10 @@ public:
 
 public:
     auto cfg() -> vpn_agent_cfg &;
-    auto save() -> void;
+    auto save() -> common::error_code;
 
 private:
-    auto load() -> void;
+    auto load() -> common::error_code;
 
 private:
     std::string config_path_;

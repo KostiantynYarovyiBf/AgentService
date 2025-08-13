@@ -2,25 +2,25 @@ cmake_minimum_required(VERSION 3.25)
 
 set(AgentService_VERSION_NUMBER 1.0.0.0)
 set(AgentService_VERSION_NAME "")
-set(SRC_SUBDIRS agent cli config libs logging modules pipeline registration)
+set(SRC_SUBDIRS agent cli common config libs logging modules pipeline registration)
 set(PLATFORM_SRC_DIR "")
 
 # Top-level CMakeLists.txt
 message(STATUS "CMAKE_SYSTEM_NAME is: ${CMAKE_SYSTEM_NAME}")
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    # TODO use this libs for setup network interfaces
+    # find_package(PkgConfig REQUIRED)
+
     file(GLOB PLATFORM_SRC_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/linux/*.cpp")
     file(GLOB PLATFORM_SRC_HPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/linux/*.hpp")
     set(PLATFORM_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src/platform/linux")
+
+    # TODO use this libs for setup network interfaces
+    # pkg_check_modules(LIBNL3     REQUIRED IMPORTED_TARGET libnl-3.0)
+    # pkg_check_modules(LIBNLROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
+
 # elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-#     set(PLATFORM_SRC
-#         platform/windows/system_info.cpp
-#         platform/windows/wg_setup.cpp
-#     )
 # elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-#     set(PLATFORM_SRC
-#         platform/macos/system_info.cpp
-#         platform/macos/wg_setup.cpp
-#     )
 endif()
 
 
@@ -113,4 +113,13 @@ target_include_directories(AgentService PRIVATE
 ##
 ##
 # target_link_libraries(AgentService PRIVATE spdlog::spdlog magic_enum cpr::cpr pthread)
-target_link_libraries(AgentService PRIVATE spdlog::spdlog cpr::cpr pthread)
+target_link_libraries(AgentService 
+    PRIVATE
+    spdlog::spdlog
+    cpr::cpr
+    pthread
+    # TODO use this libs for setup network interfaces
+    # linux specific libraries
+    # PkgConfig::LIBNL3
+    # PkgConfig::LIBNLROUTE
+    )
