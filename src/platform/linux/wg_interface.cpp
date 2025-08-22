@@ -103,7 +103,7 @@ namespace platform
     {
       ERROR(
           channel,
-          "setup_wg: WireGuard set device is falide '{}', Wg status code '{}'",
+          "setup_wg: WireGuard set device is failed '{}', Wg status code '{}'",
           wg_name, wg_status_code);
       return common::error_code::device_configure_failed;
     }
