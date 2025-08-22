@@ -1,7 +1,12 @@
 #
-# cpr lib
+# cpr lib for Linux
 #
 libcurl4-openssl-dev
 libssl-dev
- wireguard-tools
- libmnl-dev
+wireguard-tools
+libmnl-dev
+nlohmann-json3-dev
+libboost-all-dev
+libnl-3-dev 
+libnl-route-3-dev 
+pkg-config

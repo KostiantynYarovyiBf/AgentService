@@ -29,7 +29,7 @@ auto cli::run(std::atomic<bool> &running, std::unique_ptr<config> &cfg) -> void
             INFO(channel, "VPN up");
             if (register_peer_)
             {
-                register_peer_(cfg);
+                register_peer_(cfg, running);
             }
             else
             {
@@ -37,7 +37,8 @@ auto cli::run(std::atomic<bool> &running, std::unique_ptr<config> &cfg) -> void
             }
             break;
         default:
-            WARN(channel, "Unknown option selected: {}", choice);
+            WARN(channel, "Stop option selected: {}", choice);
+            running = false;
             break;
         }
     }

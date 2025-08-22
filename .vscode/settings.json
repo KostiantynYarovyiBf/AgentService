@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.ts": "xml",
         "atomic": "cpp",
         "array": "cpp",
         "bit": "cpp",
@@ -79,6 +80,8 @@
         "stdfloat": "cpp",
         "cinttypes": "cpp",
         "typeindex": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "text_encoding": "cpp",
+        "stdbool.h": "c"
     }
 }
