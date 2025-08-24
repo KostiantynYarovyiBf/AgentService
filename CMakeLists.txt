@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-set(AgentService_VERSION_NUMBER 1.0.0.0)
+set(AgentService_VERSION_NUMBER 0.0.0.2)
 set(AgentService_VERSION_NAME "")
 set(SRC_SUBDIRS agent cli common config libs logging modules pipeline registration)
 set(PLATFORM_SRC_DIR "")
@@ -123,3 +123,27 @@ target_link_libraries(AgentService
     # PkgConfig::LIBNL3
     # PkgConfig::LIBNLROUTE
     )
+
+
+include(GNUInstallDirs)
+
+# Install the main binary
+install(TARGETS AgentService
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Optionally install config, docs, etc.
+# install(FILES config.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/AgentService)
+# install(DIRECTORY docs/ DESTINATION ${CMAKE_INSTALL_DOCDIR})
+
+# Set package metadata
+set(CPACK_PACKAGE_NAME "AgentService")
+set(CPACK_PACKAGE_VERSION "${AgentService_VERSION_NUMBER}")
+set(CPACK_PACKAGE_CONTACT "Your Name <your@email.com>")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libcurl4-openssl-dev, libssl-dev, wireguard-tools, libmnl-dev, nlohmann-json3-dev, libboost-all-dev, libnl-3-dev, libnl-route-3-dev, pkg-config")
+
+# Enable DEB and TGZ generators
+set(CPACK_GENERATOR "DEB;TGZ")
+
+include(CPack)

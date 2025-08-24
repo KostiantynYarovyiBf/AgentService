@@ -27,7 +27,12 @@ cmake --build build
 **Release build:**
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=Linux
-cmake --build
+cmake --build build
+cd build
+cpack
 
-##  Notes
+## install
+sudo dpkg -i <file.deb>
+
+##  Debug app with vscode 
 sudo gdbserver  localhost:2345 ./build/AgentService
