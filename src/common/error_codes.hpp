@@ -8,6 +8,8 @@ namespace common
 
     enum class error_code
     {
+        bad_argument = -2,
+        not_implemented = -1,
         success = 0,
         device_exists,
         device_create_failed,
@@ -21,6 +23,7 @@ namespace common
         config_load_failed,
         invalid_endpoint_format,
         invalid_pub_key_format,
+        apply_plugins_failed,
         unknown_error
     };
 

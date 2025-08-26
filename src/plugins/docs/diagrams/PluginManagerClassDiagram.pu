@@ -1,0 +1,172 @@
+@startuml Plugin-Minimal-Classes
+
+' ===== Enums =====
+enum ExecType { 
+ service
+ job 
+}
+enum PlanOpType { 
+ Install
+ Start
+ Reconfigure
+ RunJob
+ Stop
+ Uninstall 
+}
+enum PluginState {
+ starting
+ running
+ stopped
+ error
+}
+
+' ===== DTOs / simple types =====
+class Json
+class RpcMsg
+class Endpoint
+class DataOpts
+class ApplyResult
+class ManagerStatus
+
+' ===== CP payload =====
+class PluginSpec {
+  + plugin_id      : string
+  + execType       : ExecType    ' requested mode (service|job)
+  + schema_version : string
+  + config         : Json        ' plugin-specific JSON (opaque to Agent)
+}
+note right of PluginSpec
+ Single plugin entry from the Control Plane
+end note
+
+class PluginSet {
+  + version : uint64
+  + specs   : vector<PluginSpec>
+  + policy  : Json              ' e.g. {"onModuleError":"bypass"}
+}
+note right of PluginSet
+  Atomic desired state from CP. Agent applies only if version increases.
+  For MVP, policy can be a simple JSON blob (bypass/drop, uninstall removed, etc.).
+end note
+
+' ===== Catalog metadata (static, non-runtime) =====
+class PluginDescriptor {
+  + id               : string    ' resolved plugin_id (e.g., "acl")
+  + version          : string    ' local plugin package version
+  + entry            : string    ' path to binary or in-proc symbol
+  + schema           : Json      ' optional JSON Schema for config
+  + needsDataChannel : bool      ' true if plugin wants a high-rate data path
+  ' (OPTIONAL later) + capabilities : uint64  ' bitmask (hot-reload, uses nft/tc, etc.)
+}
+note right of PluginDescriptor
+  Static metadata read from local plugin manifest.
+  No runtime fields here. Does not depend on CP payload.
+end note
+
+' ===== Runtime handle =====
+class PluginHandle {
+  + id            : string      ' plugin_id
+  + state         : PluginState
+  + execType      : ExecType
+  + pid           : int
+  + configHash    : string      ' stable hash of last applied config
+  + session       : IpcSession*
+  + dataChannel   : DataChannel*
+  + lastHeartbeat : time
+  + restartCount  : int
+}
+note right of PluginHandle
+  Runtime record for a running instance, managed by PluginSupervisor.
+  Agent/Manager uses this to diff desired vs current and to send commands.
+end note
+
+' ===== Core components =====
+class PluginRegistry {
+  + listInstalled() : vector<PluginDescriptor>
+  + resolve(pluginId: string) : optional<PluginDescriptor>
+  + validatePackage(pkg) : void                 ' sig/hash check
+  + install(pkg) : void                         ' download/unpack/register
+  + uninstall(pluginId: string) : void
+  --
+  - installedPlugins : vector<PluginDescriptor> ' local catalog cache
+}
+note right of PluginRegistry
+  Package/catalog layer only.
+  - Knows what plugins are installed and their manifests.
+  - Can install/uninstall packages at runtime.
+  - Does NOT start processes or hold runtime state.
+end note
+
+class PluginSupervisor {
+  + start(desc: PluginDescriptor, execType: ExecType) : PluginHandle
+  + startOnce(desc: PluginDescriptor, config: Json) : int  ' for job plugins
+  + stop(h: PluginHandle, reason: string) : void
+  + restart(h: PluginHandle) : void
+  + isAlive(h: PluginHandle) : bool
+}
+note right of PluginSupervisor
+  Process lifecycle controller.
+  - Spawns service or job processes
+  - Wires IpcSession on connect
+  - Tracks pid/heartbeats and restarts per policy
+end note
+
+abstract class IpcServer {
+  + start(endpoint: Endpoint) : void
+  + stop() : void
+  + sessions() : vector<IpcSession*>
+  + onPluginConnected(s: IpcSession) : void
+  + onPluginMessage(s: IpcSession, msg: RpcMsg) : void
+  ' (OPTIONAL) + onPluginDisconnected(s: IpcSession) : void
+}
+note right of IpcServer
+  Control-channel listener (UDS on POSIX; TCP loopback on Windows for MVP).
+  Emits callbacks to PluginManager for handshake and inbound messages.
+end note
+
+class IpcSession {
+  + peerId : string
+  + send(msg: RpcMsg) : void
+  + close() : void
+}
+note right of IpcSession
+  One full-duplex control stream per plugin instance (JSON-RPC framed).
+end note
+
+class DataChannel {
+  + open(opts: DataOpts) : void
+  + close() : void
+}
+note right of DataChannel
+  Optional high-rate channel, only opened if plugin declares it needs one.
+  Keep control (JSON-RPC) and data channels separate.
+end note
+
+class PluginManager {
+  + init(endpoint: Endpoint) : void
+  + applyPluginSet(set: PluginSet) : ApplyResult
+  + getStatus() : ManagerStatus
+  --
+  - computeConfigHash(cfg: Json) : string
+  - diff(desired: vector<PluginSpec>) : Plan
+  - execute(plan: Plan) : ApplyResult
+  - configure(handle: PluginHandle, cfg: Json) : void
+}
+note right of PluginManager
+  Orchestrator (brains).
+  - Receives PluginSet from CP
+  - Ensures packages exist (via Registry)
+  - Builds an ordered Plan (Install/Start/Reconfigure/RunJob/Stop/Uninstall)
+  - Executes Plan (uses Supervisor + IpcServer)
+  - Sends 'configure' over control channel; opens DataChannel if needed
+end note
+
+' ===== Relations =====
+PluginManager --> PluginRegistry
+PluginManager --> PluginSupervisor
+PluginManager --> IpcServer
+PluginSupervisor --> PluginHandle
+PluginHandle --> IpcSession
+PluginHandle --> DataChannel
+
+@enduml

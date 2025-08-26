@@ -1,0 +1,60 @@
+@startuml Apply-PluginSet-MVP
+
+participant CP
+participant Agent
+participant PluginManager as PM
+participant PluginRegistry as REG
+participant PluginSupervisor as SUP
+participant IpcServer as IPC
+participant Plugin as PLG
+
+== CP pushes desired state ==
+CP --> Agent: PluginSet{version, specs[]}
+Agent -> PM: applyPluginSet(set)
+
+== Resolve packages & build plan ==
+loop for each spec in set.specs
+  PM -> REG: resolve(spec.plugin_id)?
+  alt not installed
+    PM -> REG: validatePackage(pkg)  ' sig/hash from CP
+    PM -> REG: install(pkg)
+    PM -> REG: resolve(spec.plugin_id)
+  end
+  PM -> PM: configHash = stable_hash(spec.config)
+end
+
+PM -> PM: plan = diff(desired vs runtimeMap)
+note right of PM
+  Diff rules:
+  - If not running → Install (if needed) + Start
+  - If running & configHash changed → Reconfigure (service) or RunJob (job)
+  - If present in runtime but NOT in desired → Stop (+ Uninstall if policy says so)
+end note
+
+== Execute plan (ordered ops) ==
+loop op in plan.ops
+  alt Install
+    PM -> REG: install(pkg)  ' no-op if already installed
+  else Start (service)
+    PM -> SUP: start(descriptor, execType)
+    SUP --> IPC: plugin process connects
+    IPC -> PM: onPluginConnected(session)
+    PM -> PLG: JSON-RPC configure(configJson)
+    PLG --> PM: ack / error
+  else Reconfigure (service)
+    PM -> PLG: JSON-RPC configure(configJson)
+    PLG --> PM: ack / error
+  else RunJob (job)
+    PM -> SUP: startOnce(descriptor, configJson)
+    SUP --> PM: exit code / result
+  else Stop
+    PM -> SUP: stop(handle, "removed or disabled")
+  else Uninstall
+    PM -> REG: uninstall(pluginId)
+  end
+  PM -> PM: runtimeMap update (handle, configHash, state)
+end
+
+PM --> Agent: ApplyResult (per-op outcomes + errors)
+
+@enduml
