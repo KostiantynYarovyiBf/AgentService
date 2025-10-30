@@ -35,7 +35,7 @@ namespace platform
 
   public:
     wg_interface();
-    ~wg_interface();
+    ~wg_interface() = default;
 
   public: // WireGuard setup methods
     auto setup_wg(std::uint16_t port = 51820, const char *wg_name = "wg0") -> common::error_code;

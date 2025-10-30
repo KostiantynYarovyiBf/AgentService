@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 set(AgentService_VERSION_NUMBER 0.0.0.2)
 set(AgentService_VERSION_NAME "")
-set(SRC_SUBDIRS agent cli common config libs logging modules pipeline registration)
+set(SRC_SUBDIRS agent cli common config logging registration)
 set(PLATFORM_SRC_DIR "")
 
 # Top-level CMakeLists.txt
@@ -19,8 +19,15 @@ if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     # pkg_check_modules(LIBNL3     REQUIRED IMPORTED_TARGET libnl-3.0)
     # pkg_check_modules(LIBNLROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
 
+elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+    # macOS platform configuration
+    message(STATUS "Configuring for macOS")
+    
+    file(GLOB PLATFORM_SRC_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/macos/*.cpp")
+    file(GLOB PLATFORM_SRC_HPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/macos/*.hpp")
+    set(PLATFORM_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src/platform/macos")
+
 # elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-# elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 endif()
 
 
@@ -82,9 +89,19 @@ set(CPR_USE_SYSTEM_CURL ON)
 FetchContent_MakeAvailable(cpr)
 
 ##
+## Find nlohmann-json
+##
+find_package(nlohmann_json REQUIRED)
+
+##
+## Find Boost
+##
+find_package(Boost REQUIRED)
+
 ##
 ##
-add_executable(AgentService  ${PLATFORM_SRC})
+##
+add_executable(AgentService)
 
 ##
 ##
@@ -112,17 +129,44 @@ target_include_directories(AgentService PRIVATE
 ##
 ##
 ##
-# target_link_libraries(AgentService PRIVATE spdlog::spdlog magic_enum cpr::cpr pthread)
-target_link_libraries(AgentService 
-    PRIVATE
-    spdlog::spdlog
-    cpr::cpr
-    pthread
-    # TODO use this libs for setup network interfaces
-    # linux specific libraries
-    # PkgConfig::LIBNL3
-    # PkgConfig::LIBNLROUTE
+# Platform-specific libraries
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    target_link_libraries(AgentService 
+        PRIVATE
+        spdlog::spdlog
+        cpr::cpr
+        nlohmann_json::nlohmann_json
+        Boost::boost
+        pthread
+        # TODO use this libs for setup network interfaces
+        # linux specific libraries
+        # PkgConfig::LIBNL3
+        # PkgConfig::LIBNLROUTE
     )
+elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+    target_link_libraries(AgentService 
+        PRIVATE
+        spdlog::spdlog
+        cpr::cpr
+        nlohmann_json::nlohmann_json
+        Boost::boost
+        pthread
+        # macOS system frameworks
+        "-framework CoreFoundation"
+        "-framework SystemConfiguration"
+        "-framework IOKit"
+    )
+else()
+    # Default/fallback libraries
+    target_link_libraries(AgentService 
+        PRIVATE
+        spdlog::spdlog
+        cpr::cpr
+        nlohmann_json::nlohmann_json
+        Boost::boost
+        pthread
+    )
+endif()
 
 
 include(GNUInstallDirs)

@@ -18,6 +18,8 @@ For Linux, install the following libraries (see `requirements.txt`):
 
 To build the project with CMake:
 
+### Linux
+
 **Debug build:**
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_SYSTEM_NAME=Linux
@@ -33,6 +35,32 @@ cpack
 
 ## install
 sudo dpkg -i <file.deb>
+```
 
-##  Debug app with vscode 
+**Debug app with vscode:**
+```sh
 sudo gdbserver  localhost:2345 ./build/AgentService
+```
+
+### macOS
+
+**Debug build:**
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_SYSTEM_NAME=Darwin
+cmake --build build
+```
+
+**Release build:**
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=Darwin
+cmake --build build
+```
+
+**Run with elevated privileges (if needed):**
+```sh
+sudo ./build/AgentService
+```
+
+**Debug in VS Code:**
+- Use the "Debug AgentService (macOS)" configuration for normal debugging
+- Use the "Debug AgentService with sudo (macOS)" configuration for debugging with elevated privileges

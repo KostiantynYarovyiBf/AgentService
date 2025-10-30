@@ -3,7 +3,7 @@
 
 extern "C"
 {
-#include <libs/wireguard/wireguard.h>
+#include "wireguard/wireguard.h"
 }
 
 #include <array>
@@ -50,10 +50,6 @@ namespace platform
       : wg_device_{make_unique_wg_device()}
   {
   }
-
-  ///
-  ///
-  wg_interface::~wg_interface() = default;
 
   ///
   ///
