@@ -10,4 +10,5 @@ nvm install 22
 nvm use 22
 
 # Execute
+cd control_plane_mock/
 npx @redocly/cli preview -d api
