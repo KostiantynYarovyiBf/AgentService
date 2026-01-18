@@ -1,6 +1,18 @@
+.gitignore
+
+# IDE and other configs
 .vscode/
+.github/
+
+# Artifacts
+.venv/
 build/
 node_modules/
 
+# Common
 *.log
 *.json
+
+# Tests
+tests/integration/linux/artifacts/
+tests/integration/linux/__pycache__/
