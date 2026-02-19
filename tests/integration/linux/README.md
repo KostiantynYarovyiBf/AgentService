@@ -69,7 +69,9 @@ sudo -E $(which python3) -m pytest -s -vv tests/integration/linux/test_two_peers
 ```
 
 ## Debug tests
+```bash
 sudo -E $(which python3) -m debugpy --listen 5678 --wait-for-client -m pytest -s -vv tests/integration/linux/test_two_peers_init.py::test_two_agents_init_and_exchange_peers
+```
 
 ## What the test does
 
