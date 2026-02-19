@@ -10,7 +10,9 @@ static constexpr auto channel = "rest_client";
 ///
 ///
 rest_client::rest_client(std::string base_url)
-    : base_url_(std::move(base_url)) {}
+  : base_url_(std::move(base_url))
+{
+}
 
 ///
 ///
@@ -19,107 +21,142 @@ rest_client::~rest_client() = default;
 ///
 ///
 auto rest_client::register_peer(
-    const std::string &publicKey, const std::string &endpoint,
-    const std::string &hostname) -> common::self_peer_t
+  const std::string& publicKey,
+  const std::string& endpoint,
+  const std::string& hostname,
+  common::self_peer_t& out_result) -> common::error_code
 
 {
   DEBUG(channel, "register new peer: publicKey {}, endpoint {}, hostname {}", publicKey, endpoint, hostname);
-  auto payload = json::object({{"publicKey", publicKey},
-                               {"endpoint", endpoint},
-                               {"hostname", hostname}});
+  auto payload = json::object({
+    {"publicKey", publicKey},
+    { "endpoint",  endpoint},
+    { "hostname",  hostname}
+  });
 
-  auto res = cpr::Post(cpr::Url{base_url_ + "/register"},
-                       cpr::Header{{"Content-Type", "application/json"}},
-                       cpr::Body{payload.dump()});
-
-  if (res.status_code != 200)
+  try
   {
-    ERROR(channel, "registerPeer failed: HTTP {} body={}", res.status_code, res.text);
-    throw std::runtime_error("registerPeer failed: HTTP " +
-                             std::to_string(res.status_code));
-  }
+    auto res = cpr::Post(
+      cpr::Url{
+        base_url_ + "/register"
+    },
+      cpr::Header{{"Content-Type", "application/json"}},
+      cpr::Body{payload.dump()});
 
-  auto body = json::parse(res.text);
-  common::self_peer_t out;
-  if (body.contains("self") && body.contains("peers") && body.contains("ttl"))
+    if(res.status_code != 200)
+    {
+      ERROR(channel, "registerPeer failed: HTTP {} body={}", res.status_code, res.text);
+      return common::error_code::rest_error;
+    }
+
+    auto body = json::parse(res.text);
+    if(body.contains("self") && body.contains("peers") && body.contains("ttl"))
+    {
+      out_result.self = parse_agent(body.at("self"));
+      out_result.peers = parse_agents(body.at("peers"));
+      out_result.ttl = body.at("ttl").get<int>();
+      registered_public_key_ = publicKey;
+      if(body.contains("hash"))
+      {
+        last_hash_ = body.at("hash").get<std::string>();
+      }
+      else
+      {
+        last_hash_.clear();
+      }
+    }
+    else
+    {
+      ERROR(channel, "registerPeer response is missing required fields: {}", body.dump());
+      return common::error_code::rest_error;
+    }
+
+    return common::error_code::success;
+  }
+  catch(const std::exception& e)
   {
-    out.self = parse_agent(body.at("self"));
-    out.peers = parse_agents(body.at("peers"));
-    out.ttl = body.at("ttl").get<int>();
+    ERROR(channel, "registerPeer exception: {}", e.what());
+    return common::error_code::rest_error;
   }
-  else
-  {
-    ERROR(channel, "registerPeer response is missing required fields: {}", body.dump());
-    throw std::runtime_error("registerPeer response is missing required fields");
-  }
-
-  // reset known hash (force first ping to fetch config)
-  // last_hash_.reset();
-
-  return out;
 }
 
 ///
 ///
 auto rest_client::ping() -> std::optional<rest_client::ping_t>
 {
-
   cpr::Header hdrs;
   ping_t out;
-  // if (lastHash_) {hdrs.insert({"X-Peers-Hash", *lastHash_});}
 
-  auto res = cpr::Get(
-      cpr::Url{base_url_ + "/ping"},
-      cpr::Header{hdrs});
-
-  if (res.status_code == 304)
+  if(registered_public_key_.empty())
   {
+    ERROR(channel, "ping skipped: agent is not registered yet (missing public key)");
     return std::nullopt;
   }
 
-  if (res.status_code != 200)
+  hdrs.insert({"X-Agent-PubKey", registered_public_key_});
+  if(!last_hash_.empty())
+  {
+    hdrs.insert({"X-Peers-Hash", last_hash_});
+  }
+
+  auto res = cpr::Get(cpr::Url{base_url_ + "/ping"}, cpr::Header{hdrs});
+
+  if(res.status_code == 304)
+  {
+    DEBUG(channel, "ping not modified for key {}", registered_public_key_);
+    return std::nullopt;
+  }
+
+  if(res.status_code != 200)
   {
     throw std::runtime_error("ping failed: HTTP " + std::to_string(res.status_code) + " body=" + res.text);
   }
 
   auto body = json::parse(res.text);
-  if (!body.is_object())
+  if(!body.is_object())
   {
     throw std::runtime_error("ping response is not an object: " + res.text);
   }
-  if (body.contains("self"))
+  if(body.contains("self"))
   {
     out.self = parse_agent(body.at("self"));
   }
-  if (body.contains("peers"))
+  if(body.contains("peers"))
   {
     out.peers = parse_agents(body.at("peers"));
   }
-  if (body.contains("hash"))
+  if(body.contains("hash"))
   {
     out.hash = body.at("hash").get<std::string>();
+    last_hash_ = out.hash;
   }
-  if (body.contains("ttl"))
+  else
+  {
+    last_hash_.clear();
+  }
+  if(body.contains("ttl"))
   {
     out.ttl = body.at("ttl").get<int>();
   }
 
-  // lastHash_ = out.hash;
-  // lastTTL_  = out.ttl;
   return out;
 }
 
-auto rest_client::base_url(std::string &&url) -> void
+///
+///
+auto rest_client::base_url(std::string&& url) -> void
 {
-  base_url_ = url;
+  base_url_ = std::move(url);
 }
 
 ///
 ///
-auto rest_client::parse_agent(const json &j) -> common::peer_t
+auto rest_client::parse_agent(const json& j) -> common::peer_t
 {
   common::peer_t a;
-  if (j.contains("publicKey") && j.contains("endpoint") && j.contains("VpnIp") && j.contains("registeredAt") && j.contains("lastSeen") && j.contains("hostname"))
+  if(
+    j.contains("publicKey") && j.contains("endpoint") && j.contains("VpnIp") && j.contains("registeredAt") &&
+    j.contains("lastSeen") && j.contains("hostname"))
   {
     a.pub_key = j.at("publicKey").get<std::string>();
     a.endpoint = j.at("endpoint").get<std::string>();
@@ -138,43 +175,41 @@ auto rest_client::parse_agent(const json &j) -> common::peer_t
 
 ///
 ///
-auto rest_client::parse_agents(const json &jarr)
-    -> std::vector<common::neighbor_peer_t>
+auto rest_client::parse_agents(const json& jarr) -> std::vector<common::neighbor_peer_t>
 {
   std::vector<common::neighbor_peer_t> out;
-  if (!jarr.is_array())
+  if(!jarr.is_array())
   {
     return out;
   }
   out.reserve(jarr.size());
-  for (const auto &item : jarr)
+  for(const auto& item : jarr)
   {
-
     common::neighbor_peer_t a;
-    if (item.contains("publicKey"))
+    if(item.contains("publicKey"))
     {
       a.pub_key = item.at("publicKey").get<std::string>();
     }
-    if (item.contains("endpoint"))
+    if(item.contains("endpoint"))
     {
       a.endpoint = item.at("endpoint").get<std::string>();
     }
-    if (item.contains("allowedVpnIps"))
+    if(item.contains("allowedVpnIps"))
     {
-      for (const auto &ip : item.at("allowedVpnIps"))
+      for(const auto& ip : item.at("allowedVpnIps"))
       {
         a.allowed_vpn_ips.emplace_back(ip.get<std::string>());
       }
     }
-    if (item.contains("registeredAt"))
+    if(item.contains("registeredAt"))
     {
       a.registered_at = item.at("registeredAt").get<std::string>();
     }
-    if (item.contains("lastSeen"))
+    if(item.contains("lastSeen"))
     {
       a.last_seen = item.at("lastSeen").get<std::string>();
     }
-    if (item.contains("hostname"))
+    if(item.contains("hostname"))
     {
       a.hostname = item.at("hostname").get<std::string>();
     }

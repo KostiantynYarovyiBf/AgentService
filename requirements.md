@@ -8,7 +8,6 @@
 | `libssl-dev` | ✅ `libssl-dev` | ✅ `openssl@3` | ✅ `openssl` |
 | `wireguard-tools` | ✅ `wireguard-tools` | ✅ `wireguard-tools` | ✅ `wireguard-nt` |
 | `nlohmann-json3-dev` | ✅ `nlohmann-json3-dev` | ✅ `nlohmann-json` | ✅ `nlohmann-json` (header-only) |
-| `libboost-all-dev` | ✅ `libboost-all-dev` | ✅ `boost` | ✅ `boost` (native support) |
 | `pkg-config` | ✅ `pkg-config` | ✅ `pkg-config` | ✅ `pkgconf` (via MSYS2/vcpkg) |
 
 ## ⚠️ Linux-only libraries 
@@ -41,11 +40,6 @@
 - `src/config/config.cpp` - JSON file I/O operations  
 - `src/registration/rest_client.cpp` - API response parsing
 - `src/registration/rest_client.hpp` - JSON type declarations
-
-#### 🟢 **libboost-all-dev** (minimal usage)
-**Purpose:** Network utilities  
-**Files:**
-- `src/registration/registration_peers.hpp` - Only uses `boost/asio/ip/network_v4.hpp`
 
 #### 🟢 **spdlog** (fetched via CMake)
 **Purpose:** Structured logging  

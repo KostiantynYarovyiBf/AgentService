@@ -1,30 +1,46 @@
 
 #pragma once
-#include "cli/cli.hpp"
-#include "config/config.hpp"
-#include "registration/registration_peers.hpp"
 #include "common/error_codes.hpp"
+#include "config/config.hpp"
+#include "platform/common/tunnel_manager.hpp"
+#include "registration/registration_peers.hpp"
 
-#include <thread>
 #include <atomic>
 #include <memory>
+#include <thread>
 
+///
+/// @brief Main VPN agent service orchestrator
+///
 class agent_service
 {
 public:
-    agent_service();
-    ~agent_service();
+  ///
+  /// @brief Constructor - initializes all service components
+  /// @param control_plane_url Optional Control Plane base URL
+  ///
+  explicit agent_service(const std::string& control_plane_url = "");
 
-    auto start() -> void;
-    auto stop() -> void;
+  ///
+  /// @brief Destructor - stops service and cleans up resources
+  ///
+  ~agent_service();
 
-    // auto register_cli(std::unique_ptr<cli> &&cli) -> void;
+  ///
+  /// @brief Start the agent service and all background operations
+  ///
+  auto start() -> void;
+
+  ///
+  /// @brief Stop the agent service and wait for threads to complete
+  ///
+  auto stop() -> void;
 
 private:
-    std::unique_ptr<cli> cli_;
-    std::unique_ptr<config> config_;
-    std::unique_ptr<registration_peers> reg_service_;
+  std::unique_ptr<config> config_;                           ///< Configuration manager
+  std::unique_ptr<registration_peers> reg_service_;          ///< Control Plane registration service
+  std::unique_ptr<platform::tunnel_manager> tunnel_manager_; ///< WireGuard tunnel manager
 
-    std::vector<std::jthread> threads_;
-    std::atomic<bool> running_;
+  std::vector<std::jthread> threads_; ///< Background operation threads
+  std::atomic<bool> running_;         ///< Service running flag for thread coordination
 };

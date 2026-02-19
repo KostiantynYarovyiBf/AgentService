@@ -5,27 +5,25 @@ set(AgentService_VERSION_NAME "")
 set(SRC_SUBDIRS agent cli common config logging registration)
 set(PLATFORM_SRC_DIR "")
 
-# Top-level CMakeLists.txt
 message(STATUS "CMAKE_SYSTEM_NAME is: ${CMAKE_SYSTEM_NAME}")
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     # TODO use this libs for setup network interfaces
     # find_package(PkgConfig REQUIRED)
 
+    file(GLOB PLATFORM_COMMON_SRC_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/common/*.cpp")
     file(GLOB PLATFORM_SRC_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/linux/*.cpp")
     file(GLOB PLATFORM_SRC_HPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/linux/*.hpp")
     set(PLATFORM_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src/platform/linux")
-
-    # TODO use this libs for setup network interfaces
-    # pkg_check_modules(LIBNL3     REQUIRED IMPORTED_TARGET libnl-3.0)
-    # pkg_check_modules(LIBNLROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
+    set(PLATFORM_COMMON_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src/platform/common")
 
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
     # macOS platform configuration
     message(STATUS "Configuring for macOS")
-    
+    file(GLOB PLATFORM_COMMON_SRC_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/common/*.cpp")
     file(GLOB PLATFORM_SRC_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/macos/*.cpp")
     file(GLOB PLATFORM_SRC_HPP_FILES "${CMAKE_CURRENT_LIST_DIR}/src/platform/macos/*.hpp")
     set(PLATFORM_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src/platform/macos")
+    set(PLATFORM_COMMON_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src/platform/common")
 
 # elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 endif()
@@ -94,12 +92,7 @@ FetchContent_MakeAvailable(cpr)
 find_package(nlohmann_json REQUIRED)
 
 ##
-## Find Boost
-##
-find_package(Boost REQUIRED)
-
-##
-##
+## nlohmann_json
 ##
 add_executable(AgentService)
 
@@ -111,6 +104,7 @@ target_sources(
   PRIVATE
     ${PLATFORM_SRC_CPP_FILES}
     ${PLATFORM_SRC_HPP_FILES}
+    ${PLATFORM_COMMON_SRC_CPP_FILES}
     ${SOURCES_CPP_FILES}
     ${SOURCES_HPP_FILES}
     ${SOURCES_C_FILES}
@@ -122,26 +116,27 @@ target_sources(
 ##  
 ##
 target_include_directories(AgentService PRIVATE
-    ${PLATFORM_SRC_DIR}    
+    ${PLATFORM_SRC_DIR} 
+    ${PLATFORM_COMMON_SRC_DIR}   
     src
 )
 
 ##
+##  
 ##
+add_subdirectory(third_party)
+
 ##
-# Platform-specific libraries
+## Platform-specific libraries
+##
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     target_link_libraries(AgentService 
         PRIVATE
         spdlog::spdlog
         cpr::cpr
         nlohmann_json::nlohmann_json
-        Boost::boost
         pthread
-        # TODO use this libs for setup network interfaces
-        # linux specific libraries
-        # PkgConfig::LIBNL3
-        # PkgConfig::LIBNLROUTE
+        wireguard
     )
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
     target_link_libraries(AgentService 
@@ -149,8 +144,8 @@ elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
         spdlog::spdlog
         cpr::cpr
         nlohmann_json::nlohmann_json
-        Boost::boost
         pthread
+        # ndpi_wrapper #TODO undo when include this third part lib
         # macOS system frameworks
         "-framework CoreFoundation"
         "-framework SystemConfiguration"
@@ -163,7 +158,6 @@ else()
         spdlog::spdlog
         cpr::cpr
         nlohmann_json::nlohmann_json
-        Boost::boost
         pthread
     )
 endif()
@@ -183,9 +177,9 @@ install(TARGETS AgentService
 # Set package metadata
 set(CPACK_PACKAGE_NAME "AgentService")
 set(CPACK_PACKAGE_VERSION "${AgentService_VERSION_NUMBER}")
-set(CPACK_PACKAGE_CONTACT "Your Name <your@email.com>")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Your Name")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libcurl4-openssl-dev, libssl-dev, wireguard-tools, libmnl-dev, nlohmann-json3-dev, libboost-all-dev, libnl-3-dev, libnl-route-3-dev, pkg-config")
+set(CPACK_PACKAGE_CONTACT "Kostiantyn yarovyi <kyarovyi@gmail.com>")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Kostiantyn yarovyi")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libcurl4-openssl-dev, libssl-dev, wireguard-tools, libmnl-dev, nlohmann-json3-dev, libnl-3-dev, libnl-route-3-dev, pkg-config")
 
 # Enable DEB and TGZ generators
 set(CPACK_GENERATOR "DEB;TGZ")

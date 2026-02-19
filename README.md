@@ -38,8 +38,11 @@ sudo dpkg -i <file.deb>
 ```
 
 **Debug app with vscode:**
-```sh
+```Linux
 sudo gdbserver  localhost:2345 ./build/AgentService
+```
+``` MacOs
+sudo debugserver localhost:2345 ./build/AgentService
 ```
 
 ### macOS
@@ -61,6 +64,6 @@ cmake --build build
 sudo ./build/AgentService
 ```
 
-**Debug in VS Code:**
-- Use the "Debug AgentService (macOS)" configuration for normal debugging
-- Use the "Debug AgentService with sudo (macOS)" configuration for debugging with elevated privileges
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
