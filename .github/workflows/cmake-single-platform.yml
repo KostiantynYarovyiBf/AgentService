@@ -24,6 +24,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
+          iproute2 \
           libcurl4-openssl-dev \
           libssl-dev \
           wireguard-tools \
@@ -35,6 +36,16 @@ jobs:
           pkg-config \
           cmake \
           g++
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Python test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pytest
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}  -DCMAKE_SYSTEM_NAME=${{env.OS_TYPE}}
@@ -51,4 +62,13 @@ jobs:
       with:
         name: AgentService-package
         path: build/*.deb
+
+    - name: Run Linux integration tests
+      run: |
+        python -m pytest -s -vv tests/integration/linux/test_two_peers_init.py
+
+    - name: Cleanup integration environment
+      if: always()
+      run: |
+        sudo ./tests/integration/linux/fixtures/cleanup_env.sh --quiet || true
 
