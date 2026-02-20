@@ -64,6 +64,18 @@ cmake --build build
 sudo ./build/AgentService
 ```
 
+## Integration Testing
+
+Linux integration tests spin up two network namespaces, a Python mock control plane, and two agent instances to verify end-to-end WireGuard peer exchange.
+
+See [`tests/integration/linux/README.md`](tests/integration/linux/README.md) for setup, topology, and run instructions.
+
+## Control Plane Mock
+
+A stateful Python mock server (`control_plane_mock/mock_server.py`) implements the full Control Plane API (`/register`, `/ping`) for local development and integration testing.
+
+See [`control_plane_mock/README.md`](control_plane_mock/README.md) for usage and curl examples.
+
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

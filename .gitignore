@@ -1,0 +1,22 @@
+# IDE / editor
+.vscode/
+.idea/
+
+# GitHub Copilot instructions (local dev only)
+.github/copilot-instructions.md
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# CMake / build output
+build/
+
+# Runtime config (contains secrets / local paths)
+config.json
+
+# Integration test artifacts and cache
+tests/integration/linux/__pycache__/
+tests/integration/linux/artifacts/
