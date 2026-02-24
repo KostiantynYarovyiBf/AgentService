@@ -53,62 +53,40 @@ def test_two_agents_init_and_exchange_peers(integration_env: dict[str, str]) -> 
 
     processes: list[tuple[str, subprocess.Popen[str]]] = []
 
-    def _start(name: str, cmd: list[str], log_path: Path) -> None:
-        handle = log_path.open("w", encoding="utf-8")
-        proc = subprocess.Popen(
-            cmd, stdout=handle, stderr=subprocess.STDOUT, text=True)
-        processes.append((name, proc))
-
     try:
-        _start(
+        start_process(
             "mock",
-            _root_prefix()
-            + [
-                "python3",
-                str(MOCK_SERVER),
-                "--host",
-                "0.0.0.0",
-                "--port",
-                control_plane_port,
-                "--ttl",
-                "5",
-                "--log-level",
-                "INFO",
+            _root_prefix() + [
+                "python3", str(MOCK_SERVER),
+                "--host", "0.0.0.0",
+                "--port", control_plane_port,
+                "--ttl", "5",
+                "--log-level", "INFO",
             ],
             mock_log,
+            processes,
         )
         time.sleep(1)
 
-        _start(
+        start_process(
             "agent-a",
-            _root_prefix()
-            + [
-                "ip",
-                "netns",
-                "exec",
-                namespace_a,
-                str(AGENT_BIN),
-                "--control-plane-url",
-                url_a,
+            _root_prefix() + [
+                "ip", "netns", "exec", namespace_a,
+                str(AGENT_BIN), "--control-plane-url", url_a,
             ],
             agent_a_log,
+            processes,
         )
-
         time.sleep(1)
 
-        _start(
+        start_process(
             "agent-b",
-            _root_prefix()
-            + [
-                "ip",
-                "netns",
-                "exec",
-                namespace_b,
-                str(AGENT_BIN),
-                "--control-plane-url",
-                url_b,
+            _root_prefix() + [
+                "ip", "netns", "exec", namespace_b,
+                str(AGENT_BIN), "--control-plane-url", url_b,
             ],
             agent_b_log,
+            processes,
         )
 
         assert _wait_for_interface(
@@ -168,14 +146,8 @@ def test_peer_to_peer_icmp_ping(integration_env: dict[str, str]) -> None:
 
     processes: list[tuple[str, subprocess.Popen[str]]] = []
 
-    def _start(name: str, cmd: list[str], log_path: Path) -> None:
-        handle = log_path.open("w", encoding="utf-8")
-        proc = subprocess.Popen(
-            cmd, stdout=handle, stderr=subprocess.STDOUT, text=True)
-        processes.append((name, proc))
-
     try:
-        _start(
+        start_process(
             "mock",
             _root_prefix() + [
                 "python3", str(MOCK_SERVER),
@@ -185,26 +157,29 @@ def test_peer_to_peer_icmp_ping(integration_env: dict[str, str]) -> None:
                 "--log-level", "INFO",
             ],
             mock_log,
+            processes,
         )
         time.sleep(1)
 
-        _start(
+        start_process(
             "agent-a",
             _root_prefix() + [
                 "ip", "netns", "exec", namespace_a,
                 str(AGENT_BIN), "--control-plane-url", url_a,
             ],
             agent_a_log,
+            processes,
         )
         time.sleep(1)
 
-        _start(
+        start_process(
             "agent-b",
             _root_prefix() + [
                 "ip", "netns", "exec", namespace_b,
                 str(AGENT_BIN), "--control-plane-url", url_b,
             ],
             agent_b_log,
+            processes,
         )
 
         assert _wait_for_interface(

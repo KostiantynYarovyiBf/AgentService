@@ -337,6 +337,34 @@ auto manage_interface_route(const std::string& interface_name, const std::string
     addr = htonl(addr);
     std::memcpy(net_bytes.data(), &addr, sizeof(uint32_t));
   }
+  else if(parsed.family == AF_INET6)
+  {
+    const auto total_bits = static_cast<uint16_t>(parsed.bytes_len * 8);
+    const auto prefix = static_cast<uint16_t>(parsed.prefix_len);
+    if(prefix < total_bits)
+    {
+      for(size_t i = 0; i < parsed.bytes_len; ++i)
+      {
+        const uint16_t byte_start_bit = static_cast<uint16_t>(i * 8);
+        const uint16_t byte_end_bit = static_cast<uint16_t>(byte_start_bit + 8);
+        if(byte_end_bit <= prefix)
+        {
+          // This byte is fully within the network prefix; leave it as-is.
+          continue;
+        }
+        else if(byte_start_bit >= prefix)
+        {
+          net_bytes[i] = 0;
+        }
+        else
+        {
+          const uint8_t bits_in_prefix = static_cast<uint8_t>(prefix - byte_start_bit);
+          const uint8_t mask = static_cast<uint8_t>(0xFFu << (8 - bits_in_prefix));
+          net_bytes[i] &= mask;
+        }
+      }
+    }
+  }
 
   auto socket_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
   if(socket_fd < 0)
@@ -370,13 +398,8 @@ auto manage_interface_route(const std::string& interface_name, const std::string
                  append_rtattr(nlh, message_buffer.size(), RTA_OIF, &oif, sizeof(oif)) &&
                  send_netlink_request_with_ack(socket_fd, nlh);
 
-  if(!success && !add && errno == ENOENT)
-  {
-    success = true; // Route already absent — that's fine
-  }
-
   close(socket_fd);
-  return success;
+  return !success && !add && errno == ENOENT;
 }
 
 /// @brief Parse endpoint string "IP:PORT" into WireGuard endpoint structure
