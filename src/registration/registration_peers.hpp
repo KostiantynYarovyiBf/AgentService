@@ -42,6 +42,17 @@ public:
   auto vpn_up(std::unique_ptr<platform::tunnel_manager>& tunnel_mgr) -> common::error_code;
 
 private:
+  ///
+  /// @brief Re-register with Control Plane using existing keys and update peers
+  ///
+  /// Called when the heartbeat detects that this agent has been evicted from the
+  /// server (e.g., TTL expired because the server returned 304 without updating
+  /// last_seen). Does not regenerate keys or recreate the WireGuard interface.
+  ///
+  /// @param tunnel_mgr Tunnel manager instance used to apply peer updates
+  /// @return error_code indicating success or failure
+  ///
+  auto re_register(std::unique_ptr<platform::tunnel_manager>& tunnel_mgr) -> common::error_code;
   std::unique_ptr<common::self_peer_t> self_peer_; ///< Cached peer information from Control Plane
   std::unique_ptr<rest_client> rest_client_;       ///< REST client for Control Plane API
 };

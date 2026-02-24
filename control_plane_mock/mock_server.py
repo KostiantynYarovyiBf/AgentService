@@ -95,6 +95,14 @@ class PeerStore:
             )
             return self._build_peer_response_locked(caller_public_key, include_hash=True)
 
+    def touch(self, caller_public_key: str) -> None:
+        """Update last_seen_epoch for a registered agent (e.g. on 304 heartbeats)."""
+        with self._lock:
+            record = self._agents_by_key.get(caller_public_key)
+            if record is not None:
+                record.last_seen = _utc_now_iso()
+                record.last_seen_epoch = time.time()
+
     def compare_hash(self, caller_public_key: str) -> str | None:
         with self._lock:
             self._evict_stale_locked()
@@ -278,6 +286,7 @@ def make_handler(store: PeerStore):
             if current_hash and current_hash == server_hash:
                 LOGGER.info(
                     "http GET /ping -> 304 key=%s hash_match=true", caller_public_key)
+                store.touch(caller_public_key)
                 self.send_response(HTTPStatus.NOT_MODIFIED)
                 self.end_headers()
                 return

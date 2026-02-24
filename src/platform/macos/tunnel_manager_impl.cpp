@@ -288,6 +288,21 @@ auto tunnel_manager_impl::wg_add_peer_dynamic(const common::neighbor_peer_t& pee
     return result;
   }
 
+  for(const auto& ip : peer.allowed_vpn_ips)
+  {
+    auto route_output = std::string{};
+    // TODO(launchd): remove sudo once agent runs as LaunchDaemon/root.
+    auto route_cmd = "sudo route -q -n add -net " + ip + " -interface " + interface_name_;
+    if(execute_command(route_cmd, route_output) != common::error_code::success)
+    {
+      WARN(channel, "Failed to add route {} via {}: {}", ip, interface_name_, route_output);
+    }
+    else
+    {
+      INFO(channel, "Route {} -> {} added", ip, interface_name_);
+    }
+  }
+
   INFO(channel, "Peer added dynamically to running tunnel");
   return common::error_code::success;
 }
@@ -305,6 +320,21 @@ auto tunnel_manager_impl::wg_remove_peer_dynamic(const common::neighbor_peer_t& 
   {
     WARN(channel, "Failed to remove peer dynamically, configuration updated for next restart");
     return result;
+  }
+
+  for(const auto& ip : public_key.allowed_vpn_ips)
+  {
+    auto route_output = std::string{};
+    // TODO(launchd): remove sudo once agent runs as LaunchDaemon/root.
+    auto route_cmd = "sudo route -q -n delete -net " + ip + " -interface " + interface_name_;
+    if(execute_command(route_cmd, route_output) != common::error_code::success)
+    {
+      WARN(channel, "Failed to remove route {} via {}: {}", ip, interface_name_, route_output);
+    }
+    else
+    {
+      INFO(channel, "Route {} -> {} removed", ip, interface_name_);
+    }
   }
 
   INFO(channel, "Peer removed dynamically from running tunnel");

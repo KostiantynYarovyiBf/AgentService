@@ -107,6 +107,13 @@ auto rest_client::ping() -> std::optional<rest_client::ping_t>
     return std::nullopt;
   }
 
+  if(res.status_code == 404)
+  {
+    WARN(channel, "ping: agent not registered on server (evicted?), clearing registration key");
+    registered_public_key_.clear();
+    return std::nullopt;
+  }
+
   if(res.status_code != 200)
   {
     throw std::runtime_error("ping failed: HTTP " + std::to_string(res.status_code) + " body=" + res.text);
@@ -140,6 +147,13 @@ auto rest_client::ping() -> std::optional<rest_client::ping_t>
   }
 
   return out;
+}
+
+///
+///
+auto rest_client::is_registered() const -> bool
+{
+  return !registered_public_key_.empty();
 }
 
 ///
