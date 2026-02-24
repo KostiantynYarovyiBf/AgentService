@@ -54,6 +54,9 @@ if namespace_exists "${NS_B}"; then
   run_root_cmd ip netns del "${NS_B}" >/dev/null 2>&1 || true
 fi
 
+run_root_cmd iptables -D FORWARD -i "${VETH_A_HOST}" -o "${VETH_B_HOST}" -j ACCEPT >/dev/null 2>&1 || true
+run_root_cmd iptables -D FORWARD -i "${VETH_B_HOST}" -o "${VETH_A_HOST}" -j ACCEPT >/dev/null 2>&1 || true
+
 run_root_cmd rm -rf "${STATE_DIR}" >/dev/null 2>&1 || true
 rm -f "${ENV_FILE}" || true
 

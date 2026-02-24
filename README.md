@@ -41,9 +41,6 @@ sudo dpkg -i <file.deb>
 ```Linux
 sudo gdbserver  localhost:2345 ./build/AgentService
 ```
-``` MacOs
-sudo debugserver localhost:2345 ./build/AgentService
-```
 
 ### macOS
 
@@ -57,6 +54,11 @@ cmake --build build
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=Darwin
 cmake --build build
+```
+
+**Debug app with vscode:**
+``` MacOs
+sudo debugserver localhost:2345 ./build/AgentService
 ```
 
 **Run with elevated privileges (if needed):**
