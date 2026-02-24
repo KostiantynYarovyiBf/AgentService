@@ -298,6 +298,87 @@ auto set_interface_up_state(const std::string& interface_name, bool is_up) -> bo
   return success;
 }
 
+/// @brief Add or remove a kernel route for a CIDR via a named interface using netlink
+///
+/// Sends `RTM_NEWROUTE` (add) or `RTM_DELROUTE` (delete) for the given CIDR
+/// destination, setting the output interface to `interface_name`. On delete,
+/// ENOENT is treated as success (route already absent).
+///
+/// @param interface_name Output interface name (e.g. `wg0`)
+/// @param cidr Destination in CIDR notation (e.g. `10.200.0.0/24`)
+/// @param add true to add the route, false to delete it
+/// @return true if the netlink operation succeeded, false otherwise
+auto manage_interface_route(const std::string& interface_name, const std::string& cidr, bool add) -> bool
+{
+  auto interface_index = if_nametoindex(interface_name.c_str());
+  if(interface_index == 0)
+  {
+    return false;
+  }
+
+  auto parsed = parsed_cidr_address{};
+  if(!parse_cidr_address(cidr, parsed))
+  {
+    errno = EINVAL;
+    return false;
+  }
+
+  // Zero-out host bits to get the network address
+  auto net_bytes = parsed.bytes;
+  if(parsed.family == AF_INET)
+  {
+    uint32_t addr{};
+    std::memcpy(&addr, net_bytes.data(), sizeof(uint32_t));
+    addr = ntohl(addr);
+    if(parsed.prefix_len < 32)
+    {
+      addr &= ~((1u << (32 - parsed.prefix_len)) - 1u);
+    }
+    addr = htonl(addr);
+    std::memcpy(net_bytes.data(), &addr, sizeof(uint32_t));
+  }
+
+  auto socket_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+  if(socket_fd < 0)
+  {
+    return false;
+  }
+
+  auto message_buffer = std::array<char, 512>{};
+  auto* nlh = reinterpret_cast<nlmsghdr*>(message_buffer.data());
+  nlh->nlmsg_len = NLMSG_LENGTH(sizeof(rtmsg));
+  nlh->nlmsg_type = add ? RTM_NEWROUTE : RTM_DELROUTE;
+  nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+  if(add)
+  {
+    nlh->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
+  }
+
+  auto* rtm = reinterpret_cast<rtmsg*>(NLMSG_DATA(nlh));
+  rtm->rtm_family = static_cast<uint8_t>(parsed.family);
+  rtm->rtm_dst_len = parsed.prefix_len;
+  rtm->rtm_src_len = 0;
+  rtm->rtm_tos = 0;
+  rtm->rtm_table = RT_TABLE_MAIN;
+  rtm->rtm_protocol = RTPROT_BOOT;
+  rtm->rtm_scope = RT_SCOPE_LINK;
+  rtm->rtm_type = RTN_UNICAST;
+  rtm->rtm_flags = 0;
+
+  auto oif = static_cast<uint32_t>(interface_index);
+  auto success = append_rtattr(nlh, message_buffer.size(), RTA_DST, net_bytes.data(), parsed.bytes_len) &&
+                 append_rtattr(nlh, message_buffer.size(), RTA_OIF, &oif, sizeof(oif)) &&
+                 send_netlink_request_with_ack(socket_fd, nlh);
+
+  if(!success && !add && errno == ENOENT)
+  {
+    success = true; // Route already absent — that's fine
+  }
+
+  close(socket_fd);
+  return success;
+}
+
 /// @brief Parse endpoint string "IP:PORT" into WireGuard endpoint structure
 ///
 /// Parses an endpoint string in the format "IP:PORT" and populates a wg_endpoint
@@ -784,6 +865,18 @@ auto tunnel_manager_impl::wg_add_peer_dynamic(const common::neighbor_peer_t& pee
     return common::error_code::peer_add_failed;
   }
 
+  for(const auto& ip : peer.allowed_vpn_ips)
+  {
+    if(!manage_interface_route(interface_name_, ip, true))
+    {
+      WARN(channel, "Failed to add route {} via {} (errno: {})", ip, interface_name_, errno);
+    }
+    else
+    {
+      INFO(channel, "Route {} -> {} added", ip, interface_name_);
+    }
+  }
+
   INFO(channel, "Peer added dynamically to running tunnel");
   return common::error_code::success;
 }
@@ -816,6 +909,18 @@ auto tunnel_manager_impl::wg_remove_peer_dynamic(const common::neighbor_peer_t& 
   {
     ERROR(channel, "Failed to remove peer from WireGuard device (errno: {})", errno);
     return common::error_code::peer_remove_failed;
+  }
+
+  for(const auto& ip : peer.allowed_vpn_ips)
+  {
+    if(!manage_interface_route(interface_name_, ip, false))
+    {
+      WARN(channel, "Failed to remove route {} via {} (errno: {})", ip, interface_name_, errno);
+    }
+    else
+    {
+      INFO(channel, "Route {} -> {} removed", ip, interface_name_);
+    }
   }
 
   INFO(channel, "Peer removed dynamically from running tunnel");

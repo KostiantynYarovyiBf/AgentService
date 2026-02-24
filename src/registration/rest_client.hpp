@@ -55,9 +55,15 @@ public: // Rest API
 
   ///
   /// @brief Send heartbeat ping to Control Plane
-  /// @return Optional ping response (nullopt on failure)
+  /// @return Optional ping response (nullopt on 304/no-change or lost registration)
   ///
   auto ping() -> std::optional<ping_t>;
+
+  ///
+  /// @brief Check whether this client has a registered public key
+  /// @return true if registered, false if evicted or not yet registered
+  ///
+  auto is_registered() const -> bool;
 
 public: // Modifiers
   ///
@@ -82,7 +88,7 @@ private: // Helpers
   auto parse_agents(const nlohmann::json& jarr) -> std::vector<common::neighbor_peer_t>;
 
 private:
-  std::string base_url_;                    ///< Control Plane base URL
-  std::string registered_public_key_;       ///< Public key used to identify this agent on ping
-  std::string last_hash_;                   ///< Last known peers hash for conditional ping requests
+  std::string base_url_;              ///< Control Plane base URL
+  std::string registered_public_key_; ///< Public key used to identify this agent on ping
+  std::string last_hash_;             ///< Last known peers hash for conditional ping requests
 };

@@ -57,6 +57,15 @@ auto registration_peers::heartbeat(
       ERROR(channel, "Heartbeat failed: {}", e.what());
     }
 
+    if(!rest_client_->is_registered())
+    {
+      INFO(channel, "Heartbeat: agent was evicted from server, re-registering...");
+      if(re_register(tunnel_mgr) != common::error_code::success)
+      {
+        WARN(channel, "Heartbeat: re-registration failed, will retry next interval");
+      }
+    }
+
     auto heartbeat_interval = std::max(1, self_peer_->ttl - 1);
     std::this_thread::sleep_for(std::chrono::seconds(heartbeat_interval));
   }
@@ -148,4 +157,46 @@ auto registration_peers::vpn_up(std::unique_ptr<platform::tunnel_manager>& tunne
   DEBUG(channel, "Host IP: {}", self_peer_->self.endpoint);
   DEBUG(channel, "VPN setup completed successfully");
   return status;
+}
+
+///
+///
+auto registration_peers::re_register(std::unique_ptr<platform::tunnel_manager>& tunnel_mgr) -> common::error_code
+{
+  INFO(channel, "Re-registering with Control Plane using existing keys...");
+
+  if(self_peer_->self.pub_key.empty())
+  {
+    ERROR(channel, "re_register: no existing public key, cannot re-register without calling vpn_up first");
+    return common::error_code::unknown_error;
+  }
+
+  auto peers_resp = common::self_peer_t{};
+  auto register_result = rest_client_->register_peer(
+    self_peer_->self.pub_key,
+    std::format("{}:{}", self_peer_->self.endpoint, self_peer_->self.endpoint_port),
+    self_peer_->self.hostname,
+    peers_resp);
+
+  if(register_result != common::error_code::success)
+  {
+    ERROR(channel, "re_register: failed to re-register: {}", static_cast<int>(register_result));
+    return register_result;
+  }
+
+  self_peer_->self.vpn_ip = peers_resp.self.vpn_ip;
+  self_peer_->self.last_seen = peers_resp.self.last_seen;
+  self_peer_->self.registered_at = peers_resp.self.registered_at;
+  self_peer_->peers = std::move(peers_resp.peers);
+  self_peer_->ttl = peers_resp.ttl;
+
+  auto status = tunnel_mgr->update_peers(self_peer_->peers);
+  if(status != common::error_code::success)
+  {
+    ERROR(channel, "re_register: failed to update peers after re-registration: {}", static_cast<int>(status));
+    return status;
+  }
+
+  INFO(channel, "Re-registration successful, {} peers updated", self_peer_->peers.size());
+  return common::error_code::success;
 }
